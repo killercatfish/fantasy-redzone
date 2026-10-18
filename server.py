@@ -20,6 +20,14 @@ API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}
 SLOTS = {0: "QB", 2: "RB", 4: "WR", 6: "TE", 16: "D/ST", 17: "K", 23: "FLEX",
          20: "BN", 21: "IR", 3: "RB/WR", 5: "WR/TE", 7: "OP"}
 BENCH = {20, 21}
+# Both sides of a matchup list their players in this order.
+SLOT_ORDER = ["QB", "RB", "WR", "TE", "RB/WR", "WR/TE", "FLEX", "OP", "D/ST", "K", "BN", "IR"]
+# ESPN proTeamId -> NFL abbreviation (the same ids as ESPN's public NFL scoreboard).
+NFL = {1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN", 8: "DET", 9: "GB", 10: "TEN",
+       11: "IND", 12: "KC", 13: "LV", 14: "LAR", 15: "MIA", 16: "MIN", 17: "NE", 18: "NO", 19: "NYG", 20: "NYJ",
+       21: "PHI", 22: "ARI", 23: "PIT", 24: "LAC", 25: "SF", 26: "SEA", 27: "TB", 28: "WSH", 29: "CAR", 30: "JAX",
+       33: "BAL", 34: "HOU"}
+SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 TD_JUMP = 5.5          # a jump this big between polls is almost always a touchdown
 BIG_JUMP = 3.5         # long play / big chunk
 
@@ -59,6 +67,51 @@ def player_proj(ppe, period):
     return player_stat(ppe, period, 1)
 
 
+def game_left():
+    """proTeamId -> share of that team's game still to play (1 = not started, 0 = over or bye)."""
+    req = urllib.request.Request(SCOREBOARD, headers={"User-Agent": "Mozilla/5.0 fantasy-redzone"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        sb = json.loads(r.read().decode())
+    left = {int(t["id"]): 0.0 for t in sb.get("week", {}).get("teamsOnBye", [])}
+    for ev in sb.get("events", []):
+        c = ev["competitions"][0]
+        st = c["status"]
+        state = st["type"]["state"]
+        if state == "pre":
+            frac = 1.0
+        elif state == "post":
+            frac = 0.0
+        else:  # in progress: quarters still to come plus what's left on the clock; overtime counts as done
+            period = st.get("period") or 4
+            m, _, sec = (st.get("displayClock") or "0:00").partition(":")
+            clock = int(m or 0) + int(sec or 0) / 60 if period <= 4 else 0
+            frac = min(max(((4 - period) * 15 + clock) / 60, 0.0), 1.0)
+        for t in c["competitors"]:
+            left[int(t["id"])] = frac
+    return left
+
+
+def live_proj(pts, proj, left):
+    """Points so far plus the pregame projection scaled by the share of the game left."""
+    return None if proj is None else pts + proj * left
+
+
+def slot_key(p):
+    return SLOT_ORDER.index(p["slot"]) if p["slot"] in SLOT_ORDER else len(SLOT_ORDER)
+
+
+def align(a, b):
+    """Give both sides the same starter slots, row for row: an empty lineup slot becomes an "Empty" row."""
+    for side, other in ((a, b), (b, a)):
+        for slot in {p["slot"] for p in other["players"] if not p["bench"]}:
+            short = (sum(p["slot"] == slot for p in other["players"])
+                     - sum(p["slot"] == slot for p in side["players"]))
+            side["players"] += [{"id": f"empty-{side['id']}-{slot}-{i}", "name": "Empty", "nfl": "", "slot": slot,
+                                 "bench": False, "empty": True, "pts": 0.0, "proj": None} for i in range(short)]
+    for side in (a, b):
+        side["players"].sort(key=slot_key)
+
+
 def fetch_live(cfg):
     base = espn_get(cfg, "view=mTeam&view=mSettings&view=mStatus")
     period = base.get("scoringPeriodId") or base.get("status", {}).get("currentMatchupPeriod")
@@ -74,6 +127,12 @@ def fetch_live(cfg):
     filt = json.dumps({"schedule": {"filterMatchupPeriodIds": {"value": [mp]}}})
     box = espn_get(cfg, f"view=mMatchupScore&view=mBoxscore&view=mScoreboard&scoringPeriodId={period}",
                    {"x-fantasy-filter": filt})
+
+    try:
+        left = game_left()
+    except Exception as e:  # no game clocks: show pregame projections, still live team totals
+        print(f"[scoreboard] {e}", file=sys.stderr)
+        left = None
 
     matchups = []
     for m in box.get("schedule", []):
@@ -95,8 +154,12 @@ def fetch_live(cfg):
                 if pts is None:
                     pts = player_stat(ppe, period, 0)
                 pts = float(pts or 0)
-                proj = player_proj(ppe, period)
-                players.append({"id": p.get("id"), "name": p.get("fullName", "?"),
+                pro = p.get("proTeamId")
+                if left is None:
+                    proj = player_proj(ppe, period)
+                else:
+                    proj = live_proj(pts, player_proj(ppe, period), left.get(pro, 1.0))
+                players.append({"id": p.get("id"), "name": p.get("fullName", "?"), "nfl": NFL.get(pro, ""),
                                 "slot": SLOTS.get(slot, str(slot)), "bench": slot in BENCH,
                                 "pts": round(pts, 2), "proj": round(proj, 2) if proj is not None else None})
             t = teams.get(s.get("teamId"), {"id": s.get("teamId"), "name": f"Team {s.get('teamId')}"})
@@ -107,6 +170,7 @@ def fetch_live(cfg):
             sides.append({**t, "pts": round(float(pts), 2), "proj": round(float(proj), 2),
                           "players": players})
         if len(sides) == 2:
+            align(*sides)
             matchups.append(sides)
     return {"league": league_name, "week": mp, "matchups": matchups}
 
@@ -133,10 +197,11 @@ class Demo:
                 name = (f"{n.split()[0]} D/ST" if pos == "D/ST"
                         else f"{rnd.choice(self.FIRST)} {rnd.choice(self.LAST)}")
                 players.append({"id": i * 100 + j, "name": name, "slot": pos, "bench": False,
-                                "pts": 0.0, "proj": float(proj + rnd.randint(-3, 4))})
+                                "nfl": rnd.choice(list(NFL.values())), "pts": 0.0, "proj": float(proj + rnd.randint(-3, 4))})
             for j in range(3):
                 players.append({"id": i * 100 + 50 + j, "name": f"{rnd.choice(self.FIRST)} {rnd.choice(self.LAST)}",
-                                "slot": "BN", "bench": True, "pts": 0.0, "proj": float(rnd.randint(4, 11))})
+                                "slot": "BN", "bench": True, "nfl": rnd.choice(list(NFL.values())),
+                                "pts": 0.0, "proj": float(rnd.randint(4, 11))})
             self.teams.append({"id": i + 1, "name": n, "abbrev": "".join(w[0] for w in n.split())[:4].upper(),
                                "record": f"{rnd.randint(1, 5)}-{rnd.randint(1, 5)}", "players": players})
         self.tick = 0
@@ -165,7 +230,8 @@ class Demo:
             proj = pts + sum(max(p["proj"] * (1 - frac), 0) for p in starters)
             sides.append({**{k: t[k] for k in ("id", "name", "abbrev", "record")},
                           "pts": round(pts, 2), "proj": round(proj, 2),
-                          "players": [dict(p) for p in t["players"]]})
+                          "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2)}
+                                      for p in t["players"]]})
         return {"league": "Demo League", "week": 7,
                 "matchups": [[sides[i], sides[i + 1]] for i in range(0, len(sides), 2)]}
 
