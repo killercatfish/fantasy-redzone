@@ -129,6 +129,13 @@ def align(a, b):
         side["players"].sort(key=slot_key)
 
 
+def game_states(games, left):
+    """proTeamId -> "pre", "in", "post" or "bye", for coloring each player's row."""
+    states = {t: "bye" for t in left or {}}
+    states.update({t["id"]: g["state"] for g in games for t in (g["away"], g["home"])})
+    return states
+
+
 def fetch_live(cfg):
     base = espn_get(cfg, "view=mTeam&view=mSettings&view=mStatus")
     period = base.get("scoringPeriodId") or base.get("status", {}).get("currentMatchupPeriod")
@@ -150,6 +157,8 @@ def fetch_live(cfg):
     except Exception as e:  # no game clocks: show pregame projections, still live team totals
         print(f"[scoreboard] {e}", file=sys.stderr)
         left, games = None, []
+
+    states = game_states(games, left)
 
     matchups = []
     for m in box.get("schedule", []):
@@ -177,6 +186,7 @@ def fetch_live(cfg):
                 else:
                     proj = live_proj(pts, player_proj(ppe, period), left.get(pro, 1.0))
                 players.append({"id": p.get("id"), "name": p.get("fullName", "?"), "nfl": NFL.get(pro, ""),
+                                "game": states.get(pro),
                                 "slot": SLOTS.get(slot, str(slot)), "bench": slot in BENCH,
                                 "pts": round(pts, 2), "proj": round(proj, 2) if proj is not None else None})
             t = teams.get(s.get("teamId"), {"id": s.get("teamId"), "name": f"Team {s.get('teamId')}"})
@@ -265,6 +275,9 @@ class Demo:
 
     def snapshot(self):
         self.step()
+        games = self.games_now()
+        states = game_states(games, {t: 0 for t in NFL})
+        abbr_state = {NFL[t]: s for t, s in states.items()}
         sides = []
         for t in self.teams:
             starters = [p for p in t["players"] if not p["bench"]]
@@ -274,9 +287,9 @@ class Demo:
             proj = pts + sum(max(p["proj"] * (1 - frac), 0) for p in starters)
             sides.append({**{k: t[k] for k in ("id", "name", "abbrev", "record")},
                           "pts": round(pts, 2), "proj": round(proj, 2),
-                          "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2)}
-                                      for p in t["players"]]})
-        return {"league": "Demo League", "week": 7, "games": self.games_now(),
+                          "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2),
+                                       "game": abbr_state.get(p["nfl"])} for p in t["players"]]})
+        return {"league": "Demo League", "week": 7, "games": games,
                 "matchups": [[sides[i], sides[i + 1]] for i in range(0, len(sides), 2)]}
 
 

@@ -20,12 +20,16 @@ html,body{background:var(--bg);color:var(--ink);height:100%;overflow:hidden;
 
 /* fixed 1920x1080 stage, scaled to whatever screen it's on */
 #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;
-  display:grid;grid-template-rows:76px 1fr 96px;
+  display:grid;grid-template-rows:76px 1fr 124px;
   background:radial-gradient(1200px 600px at 30% -10%,#13213a 0%,transparent 60%),
              radial-gradient(900px 500px at 110% 110%,#2a0c12 0%,transparent 55%),var(--bg)}
 
-/* bottom bar */
-header{grid-row:3;display:flex;align-items:center;gap:28px;padding:0 40px;border-top:1px solid var(--line)}
+/* brand block, top of the right column */
+.brandbox{display:flex;flex-direction:column;gap:8px;padding:2px 2px 4px}
+.brandbox .sub{display:flex;align-items:center;gap:18px}
+.brandbox .meta{flex:1;font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brandbox .live{font-size:22px}
+.brandbox .clock{font-size:30px}
 .brand{display:flex;align-items:center;gap:14px}
 .brand .mark{width:54px;height:54px;border-radius:10px;background:linear-gradient(135deg,var(--red),var(--red2));
   display:grid;place-items:center;font-weight:900;font-size:28px;letter-spacing:-1px;box-shadow:0 0 30px #ff2d3d55}
@@ -39,7 +43,7 @@ header{grid-row:3;display:flex;align-items:center;gap:28px;padding:0 40px;border
 .clock{font-size:38px;font-weight:700;color:var(--ink)}
 @keyframes pulse{50%{opacity:.25}}
 
-main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:26px 40px 22px;min-height:0}
+main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:20px 40px 18px;min-height:0}
 
 /* hero matchup */
 .hero{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;
@@ -85,16 +89,18 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
 .prow.hot{background:#2be38a2e}
 .prow.hot .pp{color:var(--green)}
 .prow.zero .pn,.prow.zero .pp{color:var(--faint)}
+.prow.done .pn,.prow.done .pp{color:#8db4ff}
 .rhead{display:flex;justify-content:space-between;font-family:Barlow,sans-serif;font-size:15px;letter-spacing:2px;
   color:var(--faint);text-transform:uppercase;padding:0 12px 4px}
 
 /* other matchups */
-.others{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:10px;min-height:0}
-.others h3{font-family:Barlow,sans-serif;font-size:16px;font-weight:600;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
-.others h3.nfl{margin-top:8px}
-#others{display:flex;flex-direction:column;gap:8px}
-.mcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 16px 9px;
-  display:grid;gap:0;transition:box-shadow .5s,border-color .5s}
+.rail{display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:12px;min-height:0}
+.rail h3{font-family:Barlow,sans-serif;font-size:16px;font-weight:600;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.league{grid-row:3;display:grid;grid-template-columns:220px 1fr;border-top:1px solid var(--line);background:#0a0f18}
+.league .flag{font-size:24px;line-height:1.05;text-align:center;background:linear-gradient(135deg,#1d2a40,#141d2c);color:var(--dim)}
+#others{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:12px 40px 12px 20px;min-width:0}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 16px 9px;min-width:0;
+  display:grid;align-content:center;gap:0;transition:box-shadow .5s,border-color .5s}
 .mcard.flash{border-color:var(--gold);box-shadow:0 0 30px #ffc23d55}
 .mline{display:flex;align-items:baseline;gap:10px;line-height:1.15}
 .mline .n{flex:1;font-size:23px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -106,19 +112,20 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
 
 /* NFL game boxes */
 #games{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;min-height:0}
-.gbox{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;
-  padding:0 12px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;min-height:0;overflow:hidden}
+.gbox{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;
+  padding:0 14px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;min-height:0;overflow:hidden}
 .gbox.live{border-left-color:var(--red)}
 .gbox.rz{background:#2a0c12;box-shadow:inset 0 0 0 1px var(--red)}
 .gbox.mine{border-top-color:#3d8bff;border-right-color:#3d8bff;border-bottom-color:#3d8bff}
-.gt{display:flex;flex-direction:column;justify-content:center;line-height:1.1}
-.gt div{display:flex;align-items:center;gap:6px;font-size:21px;font-weight:700}
-.gt .a{width:46px}
-.gt .sc{margin-left:auto;font-weight:800;font-size:22px}
+.gt{display:flex;flex-direction:column;justify-content:center;gap:4px;line-height:1.1}
+.gt div{display:flex;align-items:center;gap:8px;font-size:27px;font-weight:700}
+.gt img{width:30px;height:30px;object-fit:contain}
+.gt .a{width:56px}
+.gt .sc{margin-left:auto;font-weight:800;font-size:30px}
 .gt .lose{color:#8a9bb4}
-.gt i{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.gt i{width:10px;height:10px;border-radius:50%;background:var(--gold)}
 .gt i.rz{background:var(--red);box-shadow:0 0 8px var(--red)}
-.gs{font-family:Barlow,sans-serif;font-size:15px;font-weight:600;text-align:right;color:var(--dim);white-space:nowrap}
+.gs{font-family:Barlow,sans-serif;font-size:19px;font-weight:700;text-align:right;color:var(--dim);white-space:nowrap}
 .gbox.live .gs{color:#ff8a94}
 .gbox.post .gs{color:var(--faint)}
 
@@ -156,24 +163,25 @@ footer{grid-row:1;display:grid;grid-template-columns:220px 1fr;border-bottom:2px
 /* status + sound hint */
 #status{position:absolute;left:50%;top:90px;transform:translateX(-50%);background:#2a0c12;border:1px solid var(--red);
   color:#ffd0d4;font-family:Barlow,sans-serif;font-size:22px;padding:10px 22px;border-radius:10px;display:none;z-index:5}
-#soundhint{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;font-family:Barlow,sans-serif;font-size:18px;color:var(--dim);
+#soundhint{position:absolute;left:50%;transform:translateX(-50%);bottom:140px;font-family:Barlow,sans-serif;font-size:18px;color:var(--dim);
   background:#0d1420;border:1px solid var(--line);padding:8px 14px;border-radius:8px;z-index:5}
 </style>
 </head>
 <body>
 <div id="stage">
-  <header>
-    <div class="brand"><div class="mark">RZ</div><div class="word">FANTASY <b>REDZONE</b></div></div>
-    <div class="meta" id="meta">Loading league…</div>
-    <div class="spacer"></div>
-    <div class="live" id="live"><i></i><span>LIVE</span></div>
-    <div class="clock num" id="clock"></div>
-  </header>
-
   <main>
     <section class="hero" id="hero"></section>
-    <aside class="others"><h3>Around the league</h3><div id="others"></div><h3 class="nfl">NFL today</h3><div id="games"></div></aside>
+    <aside class="rail">
+      <div class="brandbox">
+        <div class="brand"><div class="mark">RZ</div><div class="word">FANTASY <b>REDZONE</b></div></div>
+        <div class="sub"><div class="meta" id="meta">Loading league…</div>
+          <div class="live" id="live"><i></i><span>LIVE</span></div><div class="clock num" id="clock"></div></div>
+      </div>
+      <h3>NFL today</h3><div id="games"></div>
+    </aside>
   </main>
+
+  <section class="league"><div class="flag">AROUND<br>THE LEAGUE</div><div id="others"></div></section>
 
   <footer><div class="flag">SCORING</div><div class="crawl"><div class="track" id="track"></div></div></footer>
 
@@ -302,13 +310,20 @@ function rosterHTML(team){
   const starters = team.players.filter(p => !p.bench);
   return `<div class="rhead"><span>${esc(team.abbrev || team.name)}</span><span>PTS · PROJ</span></div>` +
     starters.map(p => {
-      const cls = hot[p.id] && Date.now() - hot[p.id] < 9000 ? "hot" : (p.pts === 0 ? "zero" : "");
+      const cls = hot[p.id] && Date.now() - hot[p.id] < 9000 ? "hot" : rowState(p);
       return `<div class="prow ${cls}"><span class="pos">${esc(p.slot)}</span><span class="pn">${esc(p.name)}${p.nfl ? `<span class="tm"><img src="${logo(p.nfl)}" alt=""><small>${esc(p.nfl)}</small></span>` : ""}</span>
         <span class="pp num">${fmt(p.pts)}</span><span class="pj num">${p.proj == null ? "" : fmt(p.proj)}</span></div>`;
     }).join("");
 }
 // NFL team logos from ESPN's CDN (dark-background versions), sized 2x for a sharp TV.
 const logo = abbr => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/scoreboard/${abbr.toLowerCase()}.png&h=56&w=56`;
+// Grey = hasn't played yet, white = playing now, blue = game over (or on bye).
+function rowState(p){
+  if (p.game === "post" || p.game === "bye") return "done";
+  if (p.game === "pre") return "zero";
+  if (p.game === "in") return "";
+  return p.pts === 0 ? "zero" : "";
+}
 function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
 function render(){
@@ -351,8 +366,8 @@ function render(){
     const xl = x.pts >= y.pts, px = x.win_prob ?? .5;
     const fl = flashTeams.has(x.id) || flashTeams.has(y.id) ? " flash" : "";
     return `<div class="mcard${fl}">
-      <div class="mline ${xl ? "" : "trail"}"><span class="n">${esc(x.name)}</span><span class="pj num">${pct(px)}% · proj ${fmt(x.proj)}</span><span class="s num">${fmt(x.pts)}</span></div>
-      <div class="mline ${xl ? "trail" : ""}"><span class="n">${esc(y.name)}</span><span class="pj num">${100 - pct(px)}% · proj ${fmt(y.proj)}</span><span class="s num">${fmt(y.pts)}</span></div>
+      <div class="mline ${xl ? "" : "trail"}"><span class="n">${esc(x.name)}</span><span class="pj num">proj ${fmt(x.proj)}</span><span class="s num">${fmt(x.pts)}</span></div>
+      <div class="mline ${xl ? "trail" : ""}"><span class="n">${esc(y.name)}</span><span class="pj num">proj ${fmt(y.proj)}</span><span class="s num">${fmt(y.pts)}</span></div>
       <div class="mini"><div style="width:${px * 100}%"></div></div>
     </div>`;
   }).join("");
@@ -370,7 +385,7 @@ function renderGames(){
   $("#games").innerHTML = (state.games || []).map(g => {
     const cls = ["gbox", g.state === "in" ? "live" : g.state, g.redzone ? "rz" : "",
                  myNfl.has(g.away.abbr) || myNfl.has(g.home.abbr) ? "mine" : ""].join(" ");
-    const row = (t, o) => `<div><span class="a ${g.state === "post" && t.score < o.score ? "lose" : ""}">${esc(t.abbr)}</span>
+    const row = (t, o) => `<div><img src="${logo(t.abbr)}" alt=""><span class="a ${g.state === "post" && t.score < o.score ? "lose" : ""}">${esc(t.abbr)}</span>
       ${g.poss === t.id ? `<i class="${g.redzone ? "rz" : ""}"></i>` : ""}
       <span class="sc num ${g.state === "post" && t.score < o.score ? "lose" : ""}">${g.state === "pre" ? "" : t.score}</span></div>`;
     return `<div class="${cls}"><div class="gt">${row(g.away, g.home)}${row(g.home, g.away)}</div>
