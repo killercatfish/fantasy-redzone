@@ -87,18 +87,38 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
   color:var(--faint);text-transform:uppercase;padding:0 12px 4px}
 
 /* other matchups */
-.others{display:flex;flex-direction:column;gap:14px;min-height:0}
-.others h3{font-family:Barlow,sans-serif;font-size:18px;font-weight:600;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
-.mcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 20px 14px;flex:1;
-  display:grid;grid-template-rows:1fr 1fr auto;gap:2px;min-height:0;transition:box-shadow .5s,border-color .5s}
+.others{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:10px;min-height:0}
+.others h3{font-family:Barlow,sans-serif;font-size:16px;font-weight:600;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.others h3.nfl{margin-top:8px}
+#others{display:flex;flex-direction:column;gap:8px}
+.mcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 16px 9px;
+  display:grid;gap:0;transition:box-shadow .5s,border-color .5s}
 .mcard.flash{border-color:var(--gold);box-shadow:0 0 30px #ffc23d55}
-.mline{display:flex;align-items:center;justify-content:space-between;gap:14px}
-.mline .n{font-size:28px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mline .s{font-size:40px;font-weight:900}
+.mline{display:flex;align-items:baseline;gap:10px;line-height:1.15}
+.mline .n{flex:1;font-size:23px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mline .pj{font-family:Barlow,sans-serif;font-size:14px;color:var(--faint)}
+.mline .s{font-size:28px;font-weight:900;min-width:70px;text-align:right}
 .mline.trail .n,.mline.trail .s{color:#8a9bb4}
-.mini{height:7px;border-radius:4px;background:#3a4a63;overflow:hidden;margin-top:6px}
+.mini{height:5px;border-radius:3px;background:#3a4a63;overflow:hidden;margin-top:5px}
 .mini div{height:100%;background:var(--ink);transition:width 1.6s}
-.mfoot{display:flex;justify-content:space-between;font-family:Barlow,sans-serif;font-size:15px;color:var(--faint);margin-top:4px}
+
+/* NFL game boxes */
+#games{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:8px;min-height:0}
+.gbox{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;
+  padding:0 12px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;min-height:0;overflow:hidden}
+.gbox.live{border-left-color:var(--red)}
+.gbox.rz{background:#2a0c12;box-shadow:inset 0 0 0 1px var(--red)}
+.gbox.mine{border-top-color:#3d8bff;border-right-color:#3d8bff;border-bottom-color:#3d8bff}
+.gt{display:flex;flex-direction:column;justify-content:center;line-height:1.1}
+.gt div{display:flex;align-items:center;gap:6px;font-size:21px;font-weight:700}
+.gt .a{width:46px}
+.gt .sc{margin-left:auto;font-weight:800;font-size:22px}
+.gt .lose{color:#8a9bb4}
+.gt i{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.gt i.rz{background:var(--red);box-shadow:0 0 8px var(--red)}
+.gs{font-family:Barlow,sans-serif;font-size:15px;font-weight:600;text-align:right;color:var(--dim);white-space:nowrap}
+.gbox.live .gs{color:#ff8a94}
+.gbox.post .gs{color:var(--faint)}
 
 /* crawl */
 footer{grid-row:1;display:grid;grid-template-columns:220px 1fr;border-bottom:2px solid var(--red);background:#0a0f18;overflow:hidden}
@@ -150,7 +170,7 @@ footer{grid-row:1;display:grid;grid-template-columns:220px 1fr;border-bottom:2px
 
   <main>
     <section class="hero" id="hero"></section>
-    <aside class="others"><h3>Around the league</h3><div id="others" style="display:flex;flex-direction:column;gap:14px;flex:1;min-height:0"></div></aside>
+    <aside class="others"><h3>Around the league</h3><div id="others"></div><h3 class="nfl">NFL today</h3><div id="games"></div></aside>
   </main>
 
   <footer><div class="flag">SCORING</div><div class="crawl"><div class="track" id="track"></div></div></footer>
@@ -327,11 +347,30 @@ function render(){
     const xl = x.pts >= y.pts, px = x.win_prob ?? .5;
     const fl = flashTeams.has(x.id) || flashTeams.has(y.id) ? " flash" : "";
     return `<div class="mcard${fl}">
-      <div class="mline ${xl ? "" : "trail"}"><span class="n">${esc(x.name)}</span><span class="s num">${fmt(x.pts)}</span></div>
-      <div class="mline ${xl ? "trail" : ""}"><span class="n">${esc(y.name)}</span><span class="s num">${fmt(y.pts)}</span></div>
-      <div><div class="mini"><div style="width:${px * 100}%"></div></div>
-      <div class="mfoot num"><span>${pct(px)}% · proj ${fmt(x.proj)}</span><span>proj ${fmt(y.proj)} · ${100 - pct(px)}%</span></div></div>
+      <div class="mline ${xl ? "" : "trail"}"><span class="n">${esc(x.name)}</span><span class="pj num">${pct(px)}% · proj ${fmt(x.proj)}</span><span class="s num">${fmt(x.pts)}</span></div>
+      <div class="mline ${xl ? "trail" : ""}"><span class="n">${esc(y.name)}</span><span class="pj num">${100 - pct(px)}% · proj ${fmt(y.proj)}</span><span class="s num">${fmt(y.pts)}</span></div>
+      <div class="mini"><div style="width:${px * 100}%"></div></div>
     </div>`;
+  }).join("");
+  renderGames();
+}
+
+/* ---------- NFL games: live first, then kickoffs to come, then finals ---------- */
+function kickoff(iso){
+  const d = new Date(iso), t = d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+  return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString([], {weekday: "short"}) + " " + t;
+}
+function renderGames(){
+  const mine = state.matchups.flat().find(t => t.id === state.my_team_id);
+  const myNfl = new Set((mine ? mine.players : []).filter(p => !p.bench && !p.empty).map(p => p.nfl));
+  $("#games").innerHTML = (state.games || []).map(g => {
+    const cls = ["gbox", g.state === "in" ? "live" : g.state, g.redzone ? "rz" : "",
+                 myNfl.has(g.away.abbr) || myNfl.has(g.home.abbr) ? "mine" : ""].join(" ");
+    const row = (t, o) => `<div><span class="a ${g.state === "post" && t.score < o.score ? "lose" : ""}">${esc(t.abbr)}</span>
+      ${g.poss === t.id ? `<i class="${g.redzone ? "rz" : ""}"></i>` : ""}
+      <span class="sc num ${g.state === "post" && t.score < o.score ? "lose" : ""}">${g.state === "pre" ? "" : t.score}</span></div>`;
+    return `<div class="${cls}"><div class="gt">${row(g.away, g.home)}${row(g.home, g.away)}</div>
+      <div class="gs">${esc(g.label || kickoff(g.start))}</div></div>`;
   }).join("");
 }
 

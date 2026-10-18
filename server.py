@@ -67,28 +67,45 @@ def player_proj(ppe, period):
     return player_stat(ppe, period, 1)
 
 
-def game_left():
-    """proTeamId -> share of that team's game still to play (1 = not started, 0 = over or bye)."""
+def nfl_scoreboard():
+    """This week's NFL games from ESPN's public scoreboard.
+
+    Returns (left, games): left maps proTeamId -> share of that team's game still to play
+    (1 = not started, 0 = over or bye); games is one dict per game for the board's game boxes.
+    """
     req = urllib.request.Request(SCOREBOARD, headers={"User-Agent": "Mozilla/5.0 fantasy-redzone"})
     with urllib.request.urlopen(req, timeout=10) as r:
         sb = json.loads(r.read().decode())
     left = {int(t["id"]): 0.0 for t in sb.get("week", {}).get("teamsOnBye", [])}
+    games = []
     for ev in sb.get("events", []):
         c = ev["competitions"][0]
         st = c["status"]
         state = st["type"]["state"]
+        period = st.get("period") or 0
         if state == "pre":
-            frac = 1.0
+            frac, label = 1.0, ""                     # the page shows the kickoff time from "start"
         elif state == "post":
-            frac = 0.0
+            frac, label = 0.0, st["type"].get("shortDetail", "Final").upper()
         else:  # in progress: quarters still to come plus what's left on the clock; overtime counts as done
-            period = st.get("period") or 4
             m, _, sec = (st.get("displayClock") or "0:00").partition(":")
             clock = int(m or 0) + int(sec or 0) / 60 if period <= 4 else 0
             frac = min(max(((4 - period) * 15 + clock) / 60, 0.0), 1.0)
+            half = "half" in st["type"].get("shortDetail", "").lower()
+            label = "HALF" if half else f"{'OT' if period > 4 else 'Q' + str(period)} {st.get('displayClock', '')}"
+        sit = c.get("situation") or {}
+        teams = {}
         for t in c["competitors"]:
             left[int(t["id"])] = frac
-    return left
+            teams[t["homeAway"]] = {"id": int(t["id"]), "abbr": t["team"]["abbreviation"],
+                                    "score": int(t.get("score") or 0)}
+        games.append({"id": ev["id"], "start": ev.get("date"), "state": state, "label": label,
+                      "away": teams.get("away"), "home": teams.get("home"),
+                      "poss": int(sit["possession"]) if sit.get("possession") else None,
+                      "redzone": bool(sit.get("isRedZone"))})
+    order = {"in": 0, "pre": 1, "post": 2}
+    games.sort(key=lambda g: (order.get(g["state"], 3), g["start"] or ""))
+    return left, games
 
 
 def live_proj(pts, proj, left):
@@ -129,10 +146,10 @@ def fetch_live(cfg):
                    {"x-fantasy-filter": filt})
 
     try:
-        left = game_left()
+        left, games = nfl_scoreboard()
     except Exception as e:  # no game clocks: show pregame projections, still live team totals
         print(f"[scoreboard] {e}", file=sys.stderr)
-        left = None
+        left, games = None, []
 
     matchups = []
     for m in box.get("schedule", []):
@@ -172,7 +189,7 @@ def fetch_live(cfg):
         if len(sides) == 2:
             align(*sides)
             matchups.append(sides)
-    return {"league": league_name, "week": mp, "matchups": matchups}
+    return {"league": league_name, "week": mp, "matchups": matchups, "games": games}
 
 
 # ---------------------------------------------------------------- demo league
@@ -204,7 +221,34 @@ class Demo:
                                 "pts": 0.0, "proj": float(rnd.randint(4, 11))})
             self.teams.append({"id": i + 1, "name": n, "abbrev": "".join(w[0] for w in n.split())[:4].upper(),
                                "record": f"{rnd.randint(1, 5)}-{rnd.randint(1, 5)}", "players": players})
+        ids = list(NFL)
+        rnd.shuffle(ids)
+        self.games = []
+        for g in range(14):   # 4 live, 6 final, 4 still to come; byes for the rest
+            state = "in" if g < 4 else "post" if g < 10 else "pre"
+            score = (lambda: rnd.choice([0, 3, 7, 10, 13, 14, 17, 20, 24, 27, 31])) if state != "pre" else (lambda: 0)
+            self.games.append({"id": str(g), "state": state, "period": 1 + g % 3, "secs": rnd.randint(60, 840),
+                               "start": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(time.time() + 3600 * (g - 9))),
+                               "away": {"id": ids[2 * g], "abbr": NFL[ids[2 * g]], "score": score()},
+                               "home": {"id": ids[2 * g + 1], "abbr": NFL[ids[2 * g + 1]], "score": score()}})
         self.tick = 0
+
+    def games_now(self):
+        out = []
+        for g in self.games:
+            label, poss = ("FINAL" if g["state"] == "post" else ""), None
+            if g["state"] == "in":
+                g["secs"] -= 25
+                if g["secs"] <= 0:
+                    g["period"], g["secs"] = min(g["period"] + 1, 4), 900
+                if random.random() < 0.08:
+                    random.choice((g["away"], g["home"]))["score"] += random.choice([3, 7, 7])
+                label = f"Q{g['period']} {g['secs'] // 60}:{g['secs'] % 60:02d}"
+                poss = (g["away"] if self.tick % 6 < 3 else g["home"])["id"]
+            out.append({**{k: g[k] for k in ("id", "state", "start")}, "label": label,
+                        "away": dict(g["away"]), "home": dict(g["home"]), "poss": poss,
+                        "redzone": poss is not None and self.tick % 5 == 0})
+        return out
 
     def step(self):
         self.tick += 1
@@ -232,7 +276,7 @@ class Demo:
                           "pts": round(pts, 2), "proj": round(proj, 2),
                           "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2)}
                                       for p in t["players"]]})
-        return {"league": "Demo League", "week": 7,
+        return {"league": "Demo League", "week": 7, "games": self.games_now(),
                 "matchups": [[sides[i], sides[i + 1]] for i in range(0, len(sides), 2)]}
 
 
