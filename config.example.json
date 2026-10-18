@@ -5,5 +5,6 @@
   "swid": "{PASTE-SWID-HERE-INCLUDING-BRACES}",
   "my_team_id": null,
   "poll_seconds": 30,
-  "home_assistant_webhook": ""
+  "home_assistant_webhook": "",
+  "kira_voice_url": ""
 }

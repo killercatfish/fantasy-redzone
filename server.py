@@ -7,7 +7,7 @@ board at http://<this-machine>:8787. Standard library only — no installs.
     python3 server.py            # real league (needs config.json)
     python3 server.py --demo     # fake league with simulated scoring
 """
-import argparse, json, math, random, sys, threading, time, urllib.request, urllib.error
+import argparse, json, math, os, random, sys, threading, time, urllib.parse, urllib.request, urllib.error
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -256,6 +256,8 @@ def make_handler(board):
             super().__init__(*a, directory=str(WEB), **k)
 
         def do_GET(self):
+            if self.path.startswith("/api/say"):
+                return self.say()
             if self.path.startswith("/api/board"):
                 with board.lock:
                     body = json.dumps(board.state).encode()
@@ -267,6 +269,30 @@ def make_handler(board):
                 self.wfile.write(body)
                 return
             return super().do_GET()
+
+        def say(self):
+            """Proxy one spoken line to the voice server (kira_voice_url); 503 tells the page to use the browser voice."""
+            url = board.cfg.get("kira_voice_url")
+            text = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("text", [""])[0][:300]
+            if not url or not text:
+                self.send_error(503)
+                return
+            trace = os.environ.get("CLAUDE_CODE_SESSION_ID")
+            req = urllib.request.Request(url, data=json.dumps({"text": text}).encode(), method="POST", headers={
+                "Content-Type": "application/json", "X-HKOS-Requester": "fantasy-redzone.voice",
+                "X-HKOS-Trace": f"claude:{trace}" if trace else "fantasy-redzone:server"})
+            try:
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    wav = r.read()
+            except Exception as e:
+                print(f"[kira-voice] {e}", file=sys.stderr)
+                self.send_error(503)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(wav)))
+            self.end_headers()
+            self.wfile.write(wav)
 
         def log_message(self, *a):
             pass

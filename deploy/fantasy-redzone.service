@@ -1,0 +1,34 @@
+# Fantasy RedZone as a systemd service on a Pi or any Linux box. It runs as its own user, "redzone",
+# and can't write anywhere: the board only reads its code and config.json. Steps are in deploy/PI.md.
+[Unit]
+Description=Fantasy RedZone TV board on :8787
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=redzone
+Group=redzone
+WorkingDirectory=/opt/fantasy-redzone
+ExecStart=/usr/bin/python3 /opt/fantasy-redzone/server.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+# A small stdlib server; cap it so it never crowds whatever else the machine runs.
+MemoryMax=256M
+CPUQuota=50%
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

@@ -42,6 +42,15 @@ at `http://<that-machine's-IP>:8787`.
 
 On a TV browser without that flag, press OK or click once to turn on sound.
 
+## Optional: a real voice for the calls
+
+Without this, the browser's built-in voice reads the scoring calls. Set `kira_voice_url` to a
+text-to-speech endpoint that takes `POST {"text": "..."}` and returns a wav. The server forwards each
+line there, and if the endpoint fails, the browser voice reads the line instead. For example, point it at a
+[Kokoro](https://github.com/thewh1teagle/kokoro-onnx) server on another machine.
+
+To run the board on a Raspberry Pi as a service, see `deploy/PI.md`.
+
 ## Optional: Home Assistant lights
 
 Set `home_assistant_webhook` to a webhook URL, such as

@@ -219,10 +219,21 @@ function horn(sad){
     }
   }
 }
-function say(text){
+function browserSay(text){
   if (!("speechSynthesis" in window)) return;
   const u = new SpeechSynthesisUtterance(text); u.rate = 1.02; u.pitch = .9;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+// The voice server (kira_voice_url, via our server). Fetch starts at once so it's ready by the time
+// the horn finishes; if it can't answer, the browser's own voice says the line instead.
+function kiraLine(text){
+  const clip = fetch("/api/say?text=" + encodeURIComponent(text))
+    .then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+    .then(buf => audio.decodeAudioData(buf));
+  clip.catch(() => {});
+  return () => clip.then(b => {
+    const src = audio.createBufferSource(); src.buffer = b; src.connect(audio.destination); src.start();
+  }).catch(() => browserSay(text));
 }
 
 /* ---------- takeover queue ---------- */
@@ -252,9 +263,12 @@ function showNext(){
   if (mood === "good") confetti(["#3d8bff", "#ffffff", "#ffc23d", "#2be38a"]);
   if (ev.mine || ev.against_me) {
     horn(ev.against_me);
-    setTimeout(() => say(ev.against_me
-      ? `Ugh. ${ev.player} just put up ${fmt(ev.gain)} against you.`
-      : `${td ? "Touchdown" : "Big play"}, ${ev.player}! Plus ${fmt(ev.gain)}.`), ev.against_me ? 900 : 1700);
+    if (audio && audio.state === "running") {
+      const say = kiraLine(ev.against_me
+        ? `Ugh. ${ev.player} just put up ${fmt(ev.gain)} against you.`
+        : `${td ? "Touchdown" : "Big play"}, ${ev.player}! Plus ${fmt(ev.gain)}.`);
+      setTimeout(say, ev.against_me ? 900 : 1700);
+    }
   }
   setTimeout(() => { tk.className = ""; showing = false; setTimeout(showNext, 600); },
     (ev.mine || ev.against_me) ? 6500 : 3500);
