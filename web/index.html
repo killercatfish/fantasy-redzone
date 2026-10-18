@@ -207,6 +207,10 @@ addEventListener("keydown", e => {
   if (e.key === "ArrowRight" || e.key === "ArrowDown") { pinTeam = null; featured++; render(); }
   else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { pinTeam = null; featured--; render(); }
   else if (e.key === "Home" || e.key === "0") { pinTeam = null; featured = 0; render(); }
+  else if (e.key === "t" || e.key === "T") {  // test call: a fake TD for your team, horn + voice
+    queue.push({kind: "td", mine: true, against_me: false, player: "Test Player", team: "Your team", gain: 6});
+    setTimeout(showNext, 300);  // let the same keypress finish turning sound on first
+  }
 });
 let state = null, lastSeq = null, prevPts = {}, hot = {}, queue = [], showing = false, audio = null;
 

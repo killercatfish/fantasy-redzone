@@ -17,7 +17,7 @@ A live ESPN fantasy football board for the TV, like NFL RedZone for your fantasy
 - **Touchdown takeovers**: when one of your players scores, the screen flashes, an air horn
   plays, and the play is announced. When it's against you, a sad horn plays instead.
 
-Plain Python 3, nothing to install. Arrow keys (or the TV remote's ◀ ▶) switch the featured matchup.
+Plain Python 3, nothing to install. Arrow keys (or the TV remote's ◀ ▶) switch the featured matchup. Press T for a test scoring call (horn plus voice).
 
 ## 1. Try it (no ESPN needed)
 
