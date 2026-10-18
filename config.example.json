@@ -1,0 +1,9 @@
+{
+  "league_id": 12345678,
+  "season": 2026,
+  "espn_s2": "PASTE_espn_s2_COOKIE_HERE",
+  "swid": "{PASTE-SWID-HERE-INCLUDING-BRACES}",
+  "my_team_id": null,
+  "poll_seconds": 30,
+  "home_assistant_webhook": ""
+}
