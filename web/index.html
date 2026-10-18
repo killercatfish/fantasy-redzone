@@ -55,6 +55,7 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
 .side.r{align-items:flex-end;text-align:right}
 .tname{font-size:46px;font-weight:800;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:470px}
 .tsub{font-family:Barlow,sans-serif;font-size:19px;color:var(--dim);font-weight:500}
+.tsub b{color:var(--gold);font-weight:700}
 .big{font-size:150px;font-weight:900;line-height:.9;letter-spacing:-3px}
 .big.lead{color:var(--ink)} .big.trail{color:#9fb0c8}
 .vs{font-size:34px;color:var(--faint);font-weight:800;padding:0 26px;align-self:center}
@@ -317,6 +318,13 @@ function rosterHTML(team){
 }
 // NFL team logos from ESPN's CDN (dark-background versions), sized 2x for a sharp TV.
 const logo = abbr => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/scoreboard/${abbr.toLowerCase()}.png&h=56&w=56`;
+// Record, bench points, and (once games finish) how much a better lineup would have added.
+function subline(t){
+  const bits = [esc(t.record || "")];
+  if (t.bench_pts != null) bits.push(`Bench ${fmt(t.bench_pts)}`);
+  if (t.missed > 0) bits.push(`<b>Left on bench ${fmt(t.missed)}</b>`);
+  return bits.filter(Boolean).join("  ·  ");
+}
 // Grey = hasn't played yet, white = playing now, blue = game over (or on bye).
 function rowState(p){
   if (p.game === "post" || p.game === "bye") return "done";
@@ -347,11 +355,11 @@ function render(){
   $("#hero").innerHTML = `
     <div class="tag">${my != null && a.id === my ? "Your matchup" : "Featured matchup"} · ${featured + 1}/${ms.length} <span style="color:var(--faint)">◀ ▶ to switch</span></div>
     <div class="score-row">
-      <div class="side"><div class="tname">${esc(a.name)}</div><div class="tsub">${esc(a.record || "")}</div>
+      <div class="side"><div class="tname">${esc(a.name)}</div><div class="tsub">${subline(a)}</div>
         <div class="big num ${lead ? "lead" : "trail"}">${fmt(a.pts)}</div>
         <div class="proj">Proj <b class="num">${fmt(a.proj)}</b></div></div>
       <div class="vs">VS</div>
-      <div class="side r"><div class="tname">${esc(b.name)}</div><div class="tsub">${esc(b.record || "")}</div>
+      <div class="side r"><div class="tname">${esc(b.name)}</div><div class="tsub">${subline(b)}</div>
         <div class="big num ${lead ? "trail" : "lead"}">${fmt(b.pts)}</div>
         <div class="proj">Proj <b class="num">${fmt(b.proj)}</b></div></div>
     </div>
@@ -404,10 +412,9 @@ function crawlItems(){
     items.push(`${esc(w.name)} <b>${fmt(w.pts)}</b> – ${esc(l.name)} <b>${fmt(l.pts)}</b>`);
     if (gap > 30) items.push(`${esc(l.name)} down ${fmt(gap)} — time to start drafting excuses`);
     for (const t of [x, y]) {
-      const st = t.players.filter(p => !p.bench), bn = t.players.filter(p => p.bench);
-      const bench = bn.reduce((s, p) => s + p.pts, 0);
+      const st = t.players.filter(p => !p.bench);
       const flop = st.filter(p => p.proj && p.pts < p.proj * .3 && t.proj - t.pts < 15)[0];
-      if (bench > 25) items.push(`${esc(t.name)} has <b>${fmt(bench)}</b> points sitting on the bench. Brutal.`);
+      if (t.missed >= 5) items.push(`Bench watch: ${esc(t.name)} left <b>${fmt(t.missed)}</b> points on the bench`);
       if (flop) items.push(`${esc(flop.name)} is giving ${esc(t.name)} ${fmt(flop.pts)} on a ${fmt(flop.proj)} projection`);
       const mvp = st.reduce((m, p) => p.pts > (m?.pts ?? -1) ? p : m, null);
       if (mvp && mvp.pts > 25) items.push(`${esc(mvp.name)} is carrying ${esc(t.name)} with <b>${fmt(mvp.pts)}</b>`);

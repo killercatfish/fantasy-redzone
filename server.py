@@ -186,7 +186,7 @@ def fetch_live(cfg):
                 else:
                     proj = live_proj(pts, player_proj(ppe, period), left.get(pro, 1.0))
                 players.append({"id": p.get("id"), "name": p.get("fullName", "?"), "nfl": NFL.get(pro, ""),
-                                "game": states.get(pro),
+                                "game": states.get(pro), "elig": [s for s in p.get("eligibleSlots", []) if s not in BENCH],
                                 "slot": SLOTS.get(slot, str(slot)), "bench": slot in BENCH,
                                 "pts": round(pts, 2), "proj": round(proj, 2) if proj is not None else None})
             t = teams.get(s.get("teamId"), {"id": s.get("teamId"), "name": f"Team {s.get('teamId')}"})
@@ -199,7 +199,8 @@ def fetch_live(cfg):
         if len(sides) == 2:
             align(*sides)
             matchups.append(sides)
-    return {"league": league_name, "week": mp, "matchups": matchups, "games": games}
+    slot_counts = base.get("settings", {}).get("rosterSettings", {}).get("lineupSlotCounts", {})
+    return {"league": league_name, "week": mp, "matchups": matchups, "games": games, "slot_counts": slot_counts}
 
 
 # ---------------------------------------------------------------- demo league
@@ -215,6 +216,9 @@ class Demo:
     LAST = ["Harper", "Moss", "Rivers", "Banks", "Reed", "Holloway", "Price", "Fields", "Wells",
             "Stone", "Brooks", "Carter", "Hayes", "Lowe", "Pierce", "Shaw", "Vance", "Knox"]
 
+    ELIG = {"QB": [0, 7], "RB": [2, 3, 23, 7], "WR": [4, 3, 5, 23, 7], "TE": [6, 5, 23, 7], "D/ST": [16], "K": [17]}
+    SLOT_COUNTS = {"0": 1, "2": 2, "4": 2, "6": 1, "23": 1, "16": 1, "17": 1, "20": 3}
+
     def __init__(self):
         rnd = random.Random(84)
         self.teams = []
@@ -224,10 +228,12 @@ class Demo:
                 name = (f"{n.split()[0]} D/ST" if pos == "D/ST"
                         else f"{rnd.choice(self.FIRST)} {rnd.choice(self.LAST)}")
                 players.append({"id": i * 100 + j, "name": name, "slot": pos, "bench": False,
+                                "elig": self.ELIG["RB" if pos == "FLEX" else pos],
                                 "nfl": rnd.choice(list(NFL.values())), "pts": 0.0, "proj": float(proj + rnd.randint(-3, 4))})
             for j in range(3):
                 players.append({"id": i * 100 + 50 + j, "name": f"{rnd.choice(self.FIRST)} {rnd.choice(self.LAST)}",
                                 "slot": "BN", "bench": True, "nfl": rnd.choice(list(NFL.values())),
+                                "elig": self.ELIG[rnd.choice(["RB", "WR", "TE"])],
                                 "pts": 0.0, "proj": float(rnd.randint(4, 11))})
             self.teams.append({"id": i + 1, "name": n, "abbrev": "".join(w[0] for w in n.split())[:4].upper(),
                                "record": f"{rnd.randint(1, 5)}-{rnd.randint(1, 5)}", "players": players})
@@ -289,11 +295,45 @@ class Demo:
                           "pts": round(pts, 2), "proj": round(proj, 2),
                           "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2),
                                        "game": abbr_state.get(p["nfl"])} for p in t["players"]]})
-        return {"league": "Demo League", "week": 7, "games": games,
+        return {"league": "Demo League", "week": 7, "games": games, "slot_counts": self.SLOT_COUNTS,
                 "matchups": [[sides[i], sides[i + 1]] for i in range(0, len(sides), 2)]}
 
 
 # ---------------------------------------------------------------- scoring logic
+SLOT_IDS = {label: i for i, label in SLOTS.items()}
+FLEX_IDS = {3, 5, 7, 23}    # RB/WR, WR/TE, OP, FLEX: filled after the single-position slots
+
+
+def bench_report(team, slot_counts):
+    """Points on the bench, and how many more the best possible lineup would have scored.
+
+    Only finished games count: a starter whose game is still to come or still on keeps their slot,
+    and only players whose games are over can be swapped, so the number grows fairly through the
+    day instead of flagging every bench player who played before the starters did. Fills the
+    single-position slots first with the best eligible player, then the flex slots from whoever
+    is left; that's optimal for ordinary QB/RB/WR/TE/FLEX/D/ST/K leagues.
+    """
+    pool = [p for p in team["players"] if not p.get("empty") and p["slot"] != "IR"]
+    done = lambda p: p.get("game") in ("post", "bye", None)    # None: no scoreboard, judge on points so far
+    slots = [int(s) for s, n in slot_counts.items() if int(s) not in BENCH for _ in range(n)]
+    for p in pool:
+        if not p["bench"] and not done(p) and SLOT_IDS.get(p["slot"]) in slots:
+            slots.remove(SLOT_IDS[p["slot"]])                 # still playing or to play: keeps the spot
+    pool = [p for p in pool if done(p)]
+    actual = sum(p["pts"] for p in pool if not p["bench"])
+    used, best = set(), 0.0
+    slots.sort(key=lambda s: s in FLEX_IDS)
+    for slot in slots:
+        pick = max((p for p in pool if p["id"] not in used and slot in p.get("elig", ())),
+                   key=lambda p: p["pts"], default=None)
+        if pick:
+            used.add(pick["id"])
+            best += pick["pts"]
+    team["bench_pts"] = round(sum(p["pts"] for p in pool if p["bench"]), 2)
+    team["missed"] = round(max(best - actual, 0.0), 2)
+    for p in team["players"]:
+        p.pop("elig", None)    # the page doesn't need it
+
 def win_prob(a, b):
     """Rough P(team a wins) from projected finals and remaining uncertainty."""
     rem = max(a["proj"] - a["pts"], 0) + max(b["proj"] - b["pts"], 0)
@@ -328,6 +368,8 @@ class Board:
         my_id = self.cfg.get("my_team_id")
         new_events = []
         for a, b in data["matchups"]:
+            bench_report(a, data["slot_counts"])
+            bench_report(b, data["slot_counts"])
             pa = win_prob(a, b)
             a["win_prob"], b["win_prob"] = round(pa, 3), round(1 - pa, 3)
             for side, opp in ((a, b), (b, a)):
