@@ -20,12 +20,12 @@ html,body{background:var(--bg);color:var(--ink);height:100%;overflow:hidden;
 
 /* fixed 1920x1080 stage, scaled to whatever screen it's on */
 #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;
-  display:grid;grid-template-rows:96px 1fr 76px;
+  display:grid;grid-template-rows:76px 1fr 96px;
   background:radial-gradient(1200px 600px at 30% -10%,#13213a 0%,transparent 60%),
              radial-gradient(900px 500px at 110% 110%,#2a0c12 0%,transparent 55%),var(--bg)}
 
-/* top bar */
-header{display:flex;align-items:center;gap:28px;padding:0 40px;border-bottom:1px solid var(--line)}
+/* bottom bar */
+header{grid-row:3;display:flex;align-items:center;gap:28px;padding:0 40px;border-top:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:14px}
 .brand .mark{width:54px;height:54px;border-radius:10px;background:linear-gradient(135deg,var(--red),var(--red2));
   display:grid;place-items:center;font-weight:900;font-size:28px;letter-spacing:-1px;box-shadow:0 0 30px #ff2d3d55}
@@ -39,7 +39,7 @@ header{display:flex;align-items:center;gap:28px;padding:0 40px;border-bottom:1px
 .clock{font-size:38px;font-weight:700;color:var(--ink)}
 @keyframes pulse{50%{opacity:.25}}
 
-main{display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:26px 40px 22px;min-height:0}
+main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:26px 40px 22px;min-height:0}
 
 /* hero matchup */
 .hero{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;
@@ -100,7 +100,7 @@ main{display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:26px 40px 22
 .mfoot{display:flex;justify-content:space-between;font-family:Barlow,sans-serif;font-size:15px;color:var(--faint);margin-top:4px}
 
 /* crawl */
-footer{display:grid;grid-template-columns:220px 1fr;border-top:2px solid var(--red);background:#0a0f18;overflow:hidden}
+footer{grid-row:1;display:grid;grid-template-columns:220px 1fr;border-bottom:2px solid var(--red);background:#0a0f18;overflow:hidden}
 .flag{background:linear-gradient(135deg,var(--red),var(--red2));display:grid;place-items:center;
   font-size:30px;font-weight:900;letter-spacing:2px}
 .crawl{position:relative;overflow:hidden;white-space:nowrap}
@@ -131,9 +131,9 @@ footer{display:grid;grid-template-columns:220px 1fr;border-top:2px solid var(--r
 @keyframes fall{to{transform:translateY(1200px) rotate(720deg)}}
 
 /* status + sound hint */
-#status{position:absolute;left:50%;top:110px;transform:translateX(-50%);background:#2a0c12;border:1px solid var(--red);
+#status{position:absolute;left:50%;top:90px;transform:translateX(-50%);background:#2a0c12;border:1px solid var(--red);
   color:#ffd0d4;font-family:Barlow,sans-serif;font-size:22px;padding:10px 22px;border-radius:10px;display:none;z-index:5}
-#soundhint{position:absolute;left:50%;transform:translateX(-50%);bottom:90px;font-family:Barlow,sans-serif;font-size:18px;color:var(--dim);
+#soundhint{position:absolute;left:50%;transform:translateX(-50%);bottom:110px;font-family:Barlow,sans-serif;font-size:18px;color:var(--dim);
   background:#0d1420;border:1px solid var(--line);padding:8px 14px;border-radius:8px;z-index:5}
 </style>
 </head>
