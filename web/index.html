@@ -85,6 +85,10 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
 .prow .pn small{font-family:Barlow,sans-serif;font-size:15px;font-weight:600;color:var(--dim);letter-spacing:1px}
 .prow .pn .tm{display:inline-flex;align-items:center;gap:5px;margin-left:10px;vertical-align:middle}
 .prow .pn .tm img{width:26px;height:26px;object-fit:contain}
+/* On the field: a little football left of the name, green when the unit is on, red in the red zone. */
+.prow .ball{display:inline-block;width:18px;height:11px;margin-right:8px;border-radius:50%;vertical-align:middle;visibility:hidden}
+.prow .ball.on{visibility:visible;background:var(--green);box-shadow:0 0 8px var(--green)}
+.prow .ball.rz{visibility:visible;background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse 1.4s infinite}
 .prow .pp{text-align:right;font-weight:800}
 .prow .pj{text-align:right;font-family:Barlow,sans-serif;font-size:16px;color:var(--faint)}
 .prow.hot{background:#2be38a2e}
@@ -316,7 +320,7 @@ function rosterHTML(team){
   return `<div class="rhead"><span>${esc(team.abbrev || team.name)}</span><span>PTS · PROJ</span></div>` +
     starters.map(p => {
       const cls = hot[p.id] && Date.now() - hot[p.id] < 9000 ? "hot" : rowState(p);
-      return `<div class="prow ${cls}"><span class="pos">${esc(p.slot)}</span><span class="pn">${esc(p.name)}${p.nfl ? `<span class="tm"><img src="${logo(p.nfl)}" alt=""><small>${esc(p.nfl)}</small></span>` : ""}</span>
+      return `<div class="prow ${cls}"><span class="pos">${esc(p.slot)}</span><span class="pn"><i class="ball ${p.field || ""}"></i>${esc(p.name)}${p.nfl ? `<span class="tm"><img src="${logo(p.nfl)}" alt=""><small>${esc(p.nfl)}</small></span>` : ""}</span>
         <span class="pp num">${fmt(p.pts)}</span><span class="pj num">${p.proj == null ? "" : fmt(p.proj)}</span></div>`;
     }).join("");
 }

@@ -136,6 +136,28 @@ def game_states(games, left):
     return states
 
 
+def ball_states(games):
+    """proTeamId -> ("off" or "def", red zone?) for each team in a live game whose possession is known."""
+    out = {}
+    for g in games:
+        if g["state"] == "in" and g["poss"]:
+            for t in (g["away"], g["home"]):
+                out[t["id"]] = ("off" if t["id"] == g["poss"] else "def", g["redzone"])
+    return out
+
+
+def on_field(ball, pro, dst):
+    """"on" while a player's unit is on the field, "rz" when that's an offense in the red zone, else None.
+
+    ESPN doesn't say who is in for each snap, so this goes by possession: offense players (and kickers)
+    count as on when their team has the ball, a D/ST when the other team has it.
+    """
+    side, rz = ball.get(pro, (None, False))
+    if side != ("def" if dst else "off"):
+        return None
+    return "rz" if rz and not dst else "on"
+
+
 def fetch_live(cfg):
     base = espn_get(cfg, "view=mTeam&view=mSettings&view=mStatus")
     period = base.get("scoringPeriodId") or base.get("status", {}).get("currentMatchupPeriod")
@@ -159,6 +181,7 @@ def fetch_live(cfg):
         left, games = None, []
 
     states = game_states(games, left)
+    ball = ball_states(games)
 
     matchups = []
     for m in box.get("schedule", []):
@@ -186,7 +209,8 @@ def fetch_live(cfg):
                 else:
                     proj = live_proj(pts, player_proj(ppe, period), left.get(pro, 1.0))
                 players.append({"id": p.get("id"), "name": p.get("fullName", "?"), "nfl": NFL.get(pro, ""),
-                                "game": states.get(pro), "elig": [s for s in p.get("eligibleSlots", []) if s not in BENCH],
+                                "game": states.get(pro), "field": on_field(ball, pro, p.get("defaultPositionId") == 16),
+                                "elig": [s for s in p.get("eligibleSlots", []) if s not in BENCH],
                                 "slot": SLOTS.get(slot, str(slot)), "bench": slot in BENCH,
                                 "pts": round(pts, 2), "proj": round(proj, 2) if proj is not None else None})
             t = teams.get(s.get("teamId"), {"id": s.get("teamId"), "name": f"Team {s.get('teamId')}"})
@@ -284,6 +308,7 @@ class Demo:
         games = self.games_now()
         states = game_states(games, {t: 0 for t in NFL})
         abbr_state = {NFL[t]: s for t, s in states.items()}
+        ball = {NFL[t]: b for t, b in ball_states(games).items()}
         sides = []
         for t in self.teams:
             starters = [p for p in t["players"] if not p["bench"]]
@@ -294,7 +319,8 @@ class Demo:
             sides.append({**{k: t[k] for k in ("id", "name", "abbrev", "record")},
                           "pts": round(pts, 2), "proj": round(proj, 2),
                           "players": [{**p, "proj": round(live_proj(p["pts"], p["proj"], 1 - frac), 2),
-                                       "game": abbr_state.get(p["nfl"])} for p in t["players"]]})
+                                       "game": abbr_state.get(p["nfl"]),
+                                       "field": on_field(ball, p["nfl"], p["slot"] == "D/ST")} for p in t["players"]]})
         return {"league": "Demo League", "week": 7, "games": games, "slot_counts": self.SLOT_COUNTS,
                 "matchups": [[sides[i], sides[i + 1]] for i in range(0, len(sides), 2)]}
 
