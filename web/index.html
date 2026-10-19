@@ -432,17 +432,15 @@ function crawlItems(){
   }
   return items;
 }
-let crawlX = 1700, crawlW = 0, crawlDirty = true;
-function buildCrawl(){
+// One animation per lap, run by the graphics chip, so board redraws and slow TV chips can't make it
+// stutter. Each lap picks up fresh content.
+const CRAWL_START = 1700, CRAWL_SPEED = 132;   // px per second
+function crawlLap(){
   const track = $("#track");
   track.innerHTML = crawlItems().map(i => `<span class="item">${i}</span>`).join("");
-  crawlW = track.scrollWidth;
-}
-function animateCrawl(){
-  crawlX -= 2.2;
-  if (crawlX < -crawlW) { crawlX = 1700; buildCrawl(); }   // refresh content each lap
-  $("#track").style.transform = `translateX(${crawlX}px)`;
-  requestAnimationFrame(animateCrawl);
+  const dist = CRAWL_START + track.scrollWidth;
+  track.animate([{transform: `translateX(${CRAWL_START}px)`}, {transform: `translateX(${-track.scrollWidth}px)`}],
+                {duration: dist / CRAWL_SPEED * 1000, easing: "linear", fill: "forwards"}).onfinish = crawlLap;
 }
 
 /* ---------- polling ---------- */
@@ -467,7 +465,7 @@ async function poll(){
       }
       lastSeq = Math.max(lastSeq, maxSeq);
       const first = !state; state = s; render();
-      if (first) { buildCrawl(); requestAnimationFrame(animateCrawl); }
+      if (first) crawlLap();
       showNext();
     }
   } catch (e) {

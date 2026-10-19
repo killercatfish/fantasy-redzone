@@ -28,6 +28,8 @@ public class MainActivity extends Activity {
         super.onCreate(saved);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         url = getString(R.string.board_url);
+        String test = getIntent().getStringExtra("url");   // for testing: adb shell am start ... --es url http://...
+        if (test != null) url = test;
 
         web = new WebView(this);
         web.setBackgroundColor(Color.BLACK);
