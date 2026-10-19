@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RedZone Board</string>
+    <!-- Where the board runs: tradepi on the home network (deploy/PI.md). -->
+    <string name="board_url">http://192.168.1.227:8787/</string>
+</resources>

@@ -1,0 +1,15 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.killercatfish.redzone"
+    compileSdk 35
+    defaultConfig {
+        applicationId "com.killercatfish.redzone"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "0.1"
+    }
+}
