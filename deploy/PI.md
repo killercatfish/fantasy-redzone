@@ -30,6 +30,12 @@ systemctl status fantasy-redzone --no-pager
 curl -s localhost:8787/api/board | head -c 300
 ```
 
+If the Pi runs a firewall (ufw), open the port to your home network, or the TV can't reach the board:
+
+```sh
+sudo ufw allow from 192.168.1.0/24 to any port 8787 proto tcp comment 'fantasy-redzone (LAN)'
+```
+
 The board is then at `http://<pi-ip>:8787`.
 
 ## Update
