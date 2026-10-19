@@ -31,6 +31,9 @@ public class MainActivity extends Activity {
         String test = getIntent().getStringExtra("url");   // for testing: adb shell am start ... --es url http://...
         if (test != null) url = test;
 
+        // Test builds can be inspected from the Mac (Chrome DevTools over adb); release builds can't.
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
+            WebView.setWebContentsDebuggingEnabled(true);
         web = new WebView(this);
         web.setBackgroundColor(Color.BLACK);
         WebSettings s = web.getSettings();

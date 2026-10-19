@@ -8,6 +8,7 @@ board at http://<this-machine>:8787. Standard library only — no installs.
     python3 server.py --demo     # fake league with simulated scoring
 """
 import argparse, json, math, os, random, sys, threading, time, urllib.parse, urllib.request, urllib.error
+from datetime import datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -30,6 +31,11 @@ NFL = {1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN", 8: 
 SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 TD_JUMP = 5.5          # a jump this big between polls is almost always a touchdown
 BIG_JUMP = 3.5         # long play / big chunk
+# Between games the board rests: it checks the public NFL scoreboard every 10 minutes and the league
+# (which uses your cookies) once an hour, for waiver moves and stat corrections.
+KICKOFF_SOON = 15 * 60
+IDLE_CHECK = 10 * 60
+IDLE_FULL = 60 * 60
 
 
 # ---------------------------------------------------------------- ESPN fetch
@@ -106,6 +112,18 @@ def nfl_scoreboard():
     order = {"in": 0, "pre": 1, "post": 2}
     games.sort(key=lambda g: (order.get(g["state"], 3), g["start"] or ""))
     return left, games
+
+
+def games_live(games, now=None):
+    """True while a game is on, or one kicks off within 15 minutes (a delayed kickoff still counts)."""
+    now = now or time.time()
+    for g in games:
+        if g["state"] == "in":
+            return True
+        if g["state"] == "pre" and g.get("start"):
+            if datetime.fromisoformat(g["start"].replace("Z", "+00:00")).timestamp() - now < KICKOFF_SOON:
+                return True
+    return False
 
 
 def live_proj(pts, proj, left):
@@ -438,7 +456,24 @@ class Board:
     def loop(self):
         while True:
             self.poll()
-            time.sleep(self.cfg.get("demo_interval", 4) if self.demo else self.cfg.get("poll_seconds", 30))
+            if self.demo:
+                time.sleep(self.cfg.get("demo_interval", 4))
+            elif not self.state.get("ok") or games_live(self.state.get("games") or []):
+                time.sleep(self.cfg.get("poll_seconds", 30))   # games on (or ESPN failed): keep trying
+            else:
+                self.rest()
+
+    def rest(self):
+        """No games: wait until one is on or about to start, or an hour has passed."""
+        print("[idle] no games on; resting", file=sys.stderr)
+        until = time.time() + IDLE_FULL
+        while time.time() < until:
+            time.sleep(IDLE_CHECK)
+            try:
+                if games_live(nfl_scoreboard()[1]):
+                    return
+            except Exception as e:
+                print(f"[scoreboard] {e}", file=sys.stderr)
 
 
 def make_handler(board):

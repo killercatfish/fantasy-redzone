@@ -38,7 +38,7 @@ html,body{background:var(--bg);color:var(--ink);height:100%;overflow:hidden;
 .meta{color:var(--dim);font-size:28px;font-weight:600;letter-spacing:.5px}
 .spacer{flex:1}
 .live{display:flex;align-items:center;gap:10px;font-weight:800;font-size:26px;letter-spacing:2px}
-.live i{width:14px;height:14px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red);animation:pulse 1.4s infinite}
+.live i{width:14px;height:14px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red);animation:pulse 1.4s infinite;will-change:opacity}
 .live.demo i{background:var(--gold);box-shadow:0 0 12px var(--gold)}
 .clock{font-size:38px;font-weight:700;color:var(--ink)}
 @keyframes pulse{50%{opacity:.25}}
@@ -88,7 +88,7 @@ main{grid-row:2;display:grid;grid-template-columns:1236px 1fr;gap:28px;padding:2
 /* On the field: a little football left of the name, green when the unit is on, red in the red zone. */
 .prow .ball{display:inline-block;width:18px;height:11px;margin-right:8px;border-radius:50%;vertical-align:middle;visibility:hidden}
 .prow .ball.on{visibility:visible;background:var(--green);box-shadow:0 0 8px var(--green)}
-.prow .ball.rz{visibility:visible;background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse 1.4s infinite}
+.prow .ball.rz{visibility:visible;background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse 1.4s infinite;will-change:opacity}
 .prow .pp{text-align:right;font-weight:800}
 .prow .pj{text-align:right;font-family:Barlow,sans-serif;font-size:16px;color:var(--faint)}
 .prow.hot{background:#2be38a2e}
@@ -315,14 +315,32 @@ function showNext(){
 }
 
 /* ---------- rendering ---------- */
-function rosterHTML(team){
+function rosterParts(team){
   const starters = team.players.filter(p => !p.bench);
-  return `<div class="rhead"><span>${esc(team.abbrev || team.name)}</span><span>PTS · PROJ</span></div>` +
-    starters.map(p => {
+  return [`<div class="rhead"><span>${esc(team.abbrev || team.name)}</span><span>PTS · PROJ</span></div>`,
+    ...starters.map(p => {
       const cls = hot[p.id] && Date.now() - hot[p.id] < 9000 ? "hot" : rowState(p);
       return `<div class="prow ${cls}"><span class="pos">${esc(p.slot)}</span><span class="pn"><i class="ball ${p.field || ""}"></i>${esc(p.name)}${p.nfl ? `<span class="tm"><img src="${logo(p.nfl)}" alt=""><small>${esc(p.nfl)}</small></span>` : ""}</span>
         <span class="pp num">${fmt(p.pts)}</span><span class="pj num">${p.proj == null ? "" : fmt(p.proj)}</span></div>`;
-    }).join("");
+    })];
+}
+// Swap in only the children whose markup changed (each part is one element). Rebuilding the whole
+// board took 300-500 ms on the TV's chip, long enough to make the crawl stall.
+function patch(el, parts){
+  const kids = el.children;
+  if (kids.length !== parts.length) {
+    el.innerHTML = parts.join("");
+    [...el.children].forEach((k, i) => k._html = parts[i]);
+    return;
+  }
+  parts.forEach((h, i) => {
+    if (kids[i]._html === h) return;
+    const t = document.createElement("template");
+    t.innerHTML = h.trim();
+    const n = t.content.firstElementChild;
+    n._html = h;
+    el.replaceChild(n, kids[i]);
+  });
 }
 // NFL team logos from ESPN's CDN (dark-background versions), sized 2x for a sharp TV.
 const logo = abbr => `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500-dark/scoreboard/${abbr.toLowerCase()}.png&h=56&w=56`;
@@ -360,8 +378,8 @@ function render(){
   if (focus != null && b.id === focus) [a, b] = [b, a];
   const p = a.win_prob ?? .5;
   const lead = a.pts >= b.pts;
-  $("#hero").innerHTML = `
-    <div class="tag">${my != null && a.id === my ? "Your matchup" : "Featured matchup"} · ${featured + 1}/${ms.length} <span style="color:var(--faint)">◀ ▶ to switch</span></div>
+  patch($("#hero"), [`
+    <div class="tag">${my != null && a.id === my ? "Your matchup" : "Featured matchup"} · ${featured + 1}/${ms.length} <span style="color:var(--faint)">◀ ▶ to switch</span></div>`, `
     <div class="score-row">
       <div class="side"><div class="tname">${esc(a.name)}</div><div class="tsub">${subline(a)}</div>
         <div class="big num ${lead ? "lead" : "trail"}">${fmt(a.pts)}</div>
@@ -370,15 +388,17 @@ function render(){
       <div class="side r"><div class="tname">${esc(b.name)}</div><div class="tsub">${subline(b)}</div>
         <div class="big num ${lead ? "trail" : "lead"}">${fmt(b.pts)}</div>
         <div class="proj">Proj <b class="num">${fmt(b.proj)}</b></div></div>
-    </div>
+    </div>`, `
     <div class="tug">
       <div class="labels"><span class="num">${pct(p)}%</span><em>WIN PROBABILITY</em><span class="num">${100 - pct(p)}%</span></div>
       <div class="bar"><div class="fill" style="width:${p * 100}%"></div><div class="mid"></div><div class="knot" style="left:${p * 100}%"></div></div>
-    </div>
-    <div class="rosters"><div class="roster">${rosterHTML(a)}</div><div class="roster">${rosterHTML(b)}</div></div>`;
+    </div>`, `<div class="rosters"><div class="roster"></div><div class="roster"></div></div>`]);
+  const [ra, rb] = document.querySelectorAll("#hero .roster");
+  patch(ra, rosterParts(a));
+  patch(rb, rosterParts(b));
 
   const flashTeams = new Set(state.events.filter(e => Date.now() / 1000 - e.t < 12).map(e => e.team_id));
-  $("#others").innerHTML = ms.filter((_, i) => i !== featured).slice(0, 4).map(([x, y]) => {
+  patch($("#others"), ms.filter((_, i) => i !== featured).slice(0, 4).map(([x, y]) => {
     const xl = x.pts >= y.pts, px = x.win_prob ?? .5;
     const fl = flashTeams.has(x.id) || flashTeams.has(y.id) ? " flash" : "";
     return `<div class="mcard${fl}">
@@ -386,7 +406,7 @@ function render(){
       <div class="mline ${xl ? "trail" : ""}"><span class="n">${esc(y.name)}</span><span class="pj num">proj ${fmt(y.proj)}</span><span class="s num">${fmt(y.pts)}</span></div>
       <div class="mini"><div style="width:${px * 100}%"></div></div>
     </div>`;
-  }).join("");
+  }));
   renderGames();
 }
 
@@ -398,7 +418,7 @@ function kickoff(iso){
 function renderGames(){
   const mine = state.matchups.flat().find(t => t.id === state.my_team_id);
   const myNfl = new Set((mine ? mine.players : []).filter(p => !p.bench && !p.empty).map(p => p.nfl));
-  $("#games").innerHTML = (state.games || []).map(g => {
+  patch($("#games"), (state.games || []).map(g => {
     const cls = ["gbox", g.state === "in" ? "live" : g.state, g.redzone ? "rz" : "",
                  myNfl.has(g.away.abbr) || myNfl.has(g.home.abbr) ? "mine" : ""].join(" ");
     const row = (t, o) => `<div><img src="${logo(t.abbr)}" alt=""><span class="a ${g.state === "post" && t.score < o.score ? "lose" : ""}">${esc(t.abbr)}</span>
@@ -406,7 +426,7 @@ function renderGames(){
       <span class="sc num ${g.state === "post" && t.score < o.score ? "lose" : ""}">${g.state === "pre" ? "" : t.score}</span></div>`;
     return `<div class="${cls}"><div class="gt">${row(g.away, g.home)}${row(g.home, g.away)}</div>
       <div class="gs">${esc(g.label || kickoff(g.start))}</div></div>`;
-  }).join("");
+  }));
 }
 
 /* ---------- crawl: scoring plays + generated trash talk ---------- */
@@ -452,10 +472,15 @@ async function poll(){
     $("#status").textContent = s.error || "";
     if (!s.ok && !state) return;
     if (s.ok) {
+      // Redraw only when the server has new data (every 30 s in games, about hourly between them):
+      // a full redraw is heavy enough on a TV's chip to make the crawl skip.
+      if (state && s.updated === state.updated) return;
+      let warm = false;
       for (const [x, y] of s.matchups) for (const t of [x, y]) for (const p of t.players) {
-        if (prevPts[p.id] != null && p.pts - prevPts[p.id] >= 1) hot[p.id] = Date.now();
+        if (prevPts[p.id] != null && p.pts - prevPts[p.id] >= 1) { hot[p.id] = Date.now(); warm = true; }
         prevPts[p.id] = p.pts;
       }
+      if (warm) setTimeout(render, 9100);   // turn the green rows back off after their 9 seconds
       const maxSeq = s.events.reduce((m, e) => Math.max(m, e.seq), 0);
       if (lastSeq === null) lastSeq = maxSeq;           // don't replay old plays on page load
       for (const e of s.events) if (e.seq > lastSeq) {
