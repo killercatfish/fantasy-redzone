@@ -35,6 +35,9 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);   // the horn and the voice play without a click
+        // The board is a 1920-wide stage. At the TV's 2x density the page would get 960 px, and the web view
+        // widens the page to fit the stage and shows only its top-left quarter. One page pixel per screen pixel.
+        web.setInitialScale(100);
         web.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
